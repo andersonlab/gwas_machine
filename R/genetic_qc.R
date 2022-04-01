@@ -4,8 +4,6 @@ library(ggpubr)
 library(gtools)
 library(cowplot)
 library(gridExtra)
-librar(qqman)
-
 
 #Download reference 1000G from Sanger central resources
 download_1000G_reference = function()
@@ -1014,54 +1012,48 @@ split_cohort = function(){
 
 prepare_sanger_imputation = function()
 {
+  # 17. Update to B37 (liftover) and double check with b37 fasta file, need to do this since sanger imputation requires b37
+  system("mkdir -p ./submit_for_imputation")
 
-# 17. Update to B37 (liftover) and double check with b37 fasta file, need to do this since sanger imputation requires b37
-mkdir submit_for_imputation
+  ## 17.1 EUR
+  system("mkdir -p ./submit_for_imputation/eur")
+  system("awk '{print \"chr\"$1,$4,$4+1,$2}' ./ancestry/eur/AllBatch_ATCG_aligned_nodup_gender_nodupsample_flip_sexcheck_missinghh_nochry_scr0.8_vcr0.8_scr0.95_vcr0.95_perstudy_eur_hwe1e-12.het_nomonom.bim|sed 's/chr23/chrX/g' > ./ancestry/eur/study_eur_hg38_postqc.bed")
+  system("/software/team152/liftover/liftOver ./ancestry/eur/study_eur_hg38_postqc.bed ./ref/hg38ToHg19.over.chain.gz ./submit_for_imputation/eur/study_hg38_postqc_lifted_hg19 ./submit_for_imputation/eur/study_hg38_postqc_no_lifted_hg19")
 
-## 17.1 EUR
-mkdir submit_for_imputation/eur
-awk '{print "chr"$1,$4,$4+1,$2}' data/ancestry/eur/${filename}_eur_hwe1e-12_het_nomonom.bim|sed 's/chr23/chrX/g' > data/ancestry/eur/study_eur_hg38_postqc.bed
-liftOver data/ancestry/eur/study_eur_hg38_postqc.bed ../ref/hg38ToHg19.over.chain.gz submit_for_imputation/eur/study_hg38_postqc_lifted_hg19 submit_for_imputation/eur/study_hg38_postqc_no_lifted_hg19
+  system("cut -f 4 ./submit_for_imputation/eur/study_hg38_postqc_no_lifted_hg19 | sed \"/^#/d\" > ./submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude_tmp.dat")
 
-cut -f 4 submit_for_imputation/eur/study_hg38_postqc_no_lifted_hg19 | sed "/^#/d" > submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude_tmp.dat
+  system("grep \"alt|random\" ./submit_for_imputation/eur/study_hg38_postqc_lifted_hg19 | cut -f 4 | cat - ./submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude_tmp.dat > ./submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat")
 
-grep "alt\|random" submit_for_imputation/eur/study_hg38_postqc_lifted_hg19 | cut -f 4 | cat - submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude_tmp.dat > submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat
+  ## 17.2  exclude not lifted variants and change position
+  system("grep -w -v -f ./submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat ./submit_for_imputation/eur/study_hg38_postqc_lifted_hg19|awk '{print $4,$2}' > ./submit_for_imputation/eur/study_hg38_postqc_lifted_hg19_liftedvariants.map")
 
-wc -l submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile ./ancestry/eur/AllBatch_ATCG_aligned_nodup_gender_nodupsample_flip_sexcheck_missinghh_nochry_scr0.8_vcr0.8_scr0.95_vcr0.95_perstudy_eur_hwe1e-12.het_nomonom --exclude ./submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat --update-map ./submit_for_imputation/eur/study_hg38_postqc_lifted_hg19_liftedvariants.map --make-bed --out ./submit_for_imputation/eur/study_postqc_lifted_hg19")
 
-## 17.2  exclude not lifted variants and change position
-grep -w -v -f submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat submit_for_imputation/eur/study_hg38_postqc_lifted_hg19|awk '{print $4,$2}' > submit_for_imputation/eur/study_hg38_postqc_lifted_hg19_liftedvariants.map
+  ## 17.3 force A1 and A2 to be ref and alt alleles
+  system("zcat ./b04/data/b04_ATCG_aligned.vcf.gz|cut -f '1-5'| awk '{print \"chr\"$1\":\"$2\"_\"$4\"_\"$5,$4}'|sed '/^chr##/d'  > ./submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1")
 
-plink --bfile data/ancestry/eur/${filename}_eur_hwe1e-12_het_nomonom --exclude submit_for_imputation/eur/nonlifted_hg19_variants_to_exclude.dat --update-map submit_for_imputation/eur/study_hg38_postqc_lifted_hg19_liftedvariants.map --make-bed --out submit_for_imputation/eur/study_postqc_lifted_hg19
+  system("sort ./submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1  | uniq > ./submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1_ed")
 
-## 17.3 force A1 and A2 to be ref and alt alleles
-zcat data/b04/b04_ATCG_aligned.vcf.gz|cut -f '1-5'| awk '{print "chr"$1":"$2"_"$4"_"$5,$4}'|sed '/^chr##/d'  > submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1
-wc -l submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1
-sort submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1  | uniq > submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1_ed
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile ./submit_for_imputation/eur/study_postqc_lifted_hg19 --allow-no-sex --a2-allele ./submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1_ed --make-bed --out ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt")
 
-plink --bfile submit_for_imputation/eur/study_postqc_lifted_hg19 --allow-no-sex --a2-allele submit_for_imputation/eur/list_variants_study_hg38_posstrandaligned_with_A1_ed --make-bed --out submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt --allow-no-sex --keep-allele-order --output-chr MT --recode vcf-fid --out ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt")
 
-plink --bfile submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt --allow-no-sex --keep-allele-order --output-chr MT --recode vcf-fid --out submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt
+  ## 17.4 alignment (Long running time)
+  system("/software/team152/bcftools-1.9/bcftools +/software/team152/bcftools-1.9/plugins/fixref.so  ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt.vcf -Oz -o ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned.vcf.gz -- -f ./ref/human_g1k_v37.fasta -m top 2>&1 | tee ./submit_for_imputation/eur/alignment_1.log")
 
-## 17.4 alignment
-bcftools +fixref submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt.vcf -Oz -o submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned.vcf.gz -- -f ../ref/human_g1k_v37.fasta -m top 2>&1 | tee submit_for_imputation/eur/alignment_1.log
+  #### when use --check-ref x, it will exclude incorrect or missing REF allele is encountered, the unsolved variants from previous step would be removed
+  #### it should be noted that INDEL would be normalized (left aligned) at this step, the position of indel therefore could be changed ####
+  system("/software/team152/bcftools-1.9/bcftools norm --check-ref x -f ./ref/human_g1k_v37.fasta ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned.vcf.gz --threads 10 -Oz -o ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned_2.vcf.gz 2>&1 |tee ./submit_for_imputation/eur/alignment_2.log")
 
-#### when use --check-ref x, it will exclude incorrect or missing REF allele is encountered, the unsolved variants from previous step would be removed
-#### it should be noted that INDEL would be normalized (left aligned) at this step, the position of indel therefore could be changed ####
-bcftools norm --check-ref x -f ../ref/human_g1k_v37.fasta submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned.vcf.gz --threads 10 -Oz -o submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned_2.vcf.gz 2>&1 |tee submit_for_imputation/eur/alignment_2.log
+  ## 17.5 change variant ID based on the lifted variant position
+  system("/software/team152/plink_linux_x86_64_20181202/plink --vcf ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned_2.vcf.gz --keep-allele-order --allow-no-sex --double-id --make-bed --out ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned")
+  system("zcat ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned_2.vcf.gz|grep -v ^\"#\" | cut -f '1-5' | awk '{print $1\":\"$2\"_\"$4\"_\"$5,$3}'|sed 's/^X/23/g' > ./submit_for_imputation/eur/list_variants_study_hg19_posstrandaligned")
 
-## 17.5 change variant ID based on the lifted variant position
-plink --vcf submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned_2.vcf.gz --keep-allele-order --allow-no-sex --double-id --make-bed --out submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned
+  system("mkdir -p ./submit_for_imputation/ready_for_imp_hg19")
+  system("mkdir submit_for_imputation/ready_for_imp_hg19/eur")
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile ./submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned --update-name submit_for_imputation/eur/list_variants_study_hg19_posstrandaligned 1 2 --keep-allele-order --make-bed --out ./submit_for_imputation/ready_for_imp_hg19/eur/study_hg19")
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile ./submit_for_imputation/ready_for_imp_hg19/eur/study_hg19 --allow-no-sex --keep-allele-order --output-chr MT --recode vcf-fid --out ./submit_for_imputation/ready_for_imp_hg19/eur/study_hg19")
 
-zcat submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned_2.vcf.gz|grep -v ^"#" | cut -f '1-5' | awk '{print $1":"$2"_"$4"_"$5,$3}'|sed 's/^X/23/g' > submit_for_imputation/eur/list_variants_study_hg19_posstrandaligned
-
-mkdir submit_for_imputation/ready_for_imp_hg19
-mkdir submit_for_imputation/ready_for_imp_hg19/eur
-plink --bfile submit_for_imputation/eur/study_postqc_lifted_hg19_RefAlt_posstrandaligned --update-name submit_for_imputation/eur/list_variants_study_hg19_posstrandaligned 1 2 --keep-allele-order --make-bed --out submit_for_imputation/ready_for_imp_hg19/eur/study_hg19
-
-plink --bfile submit_for_imputation/ready_for_imp_hg19/eur/study_hg19 --allow-no-sex --keep-allele-order --output-chr MT --recode vcf-fid --out submit_for_imputation/ready_for_imp_hg19/eur/study_hg19
-
-## 17.6 check if there is any error before submit for imputation
-bcftools norm -ce -f ../ref/human_g1k_v37.fasta submit_for_imputation/ready_for_imp_hg19/eur/study_hg19.vcf -Ou -o /dev/null
-
+  ## 17.6 check if there is any error before submit for imputation
+  system("/software/team152/bcftools-1.9/bcftools norm -ce -f ./ref/human_g1k_v37.fasta ./submit_for_imputation/ready_for_imp_hg19/eur/study_hg19.vcf -Ou -o /dev/null")
 }
