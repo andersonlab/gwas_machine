@@ -1,9 +1,4 @@
-library(data.table)
-library(ggplot2)
-library(ggpubr)
-library(gtools)
-library(cowplot)
-library(gridExtra)
+#' @import data.table
 
 #Download reference 1000G from Sanger central resources
 download_1000G_reference = function()
