@@ -20,6 +20,6 @@ jobs:
       uses: snakemake/snakemake-github-action@v1
       with:
         directory: .
-        snakefile: workflow/Snakefile
+        snakefile: ./workflow/Snakefile
         args: "--use-conda --cores 1 --configfile .test/config.yaml"
         
