@@ -1,0 +1,3 @@
+importFrom("grDevices", "png")
+importFrom("stats", "dist", "IQR", "sd")
+importFrom("utils", "read.csv", "read.table", "write.table")
