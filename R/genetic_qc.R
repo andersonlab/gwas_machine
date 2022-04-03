@@ -1,5 +1,3 @@
-#' @import data.table
-
 
 #Download reference 1000G from Sanger central resources
 download_1000G_reference = function()
