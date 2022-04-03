@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
-    - name: Test run
+    - name: Test ru
       uses: ./
       with:
         directory: .workflow
