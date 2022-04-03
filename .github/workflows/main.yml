@@ -1,24 +1,23 @@
 name: CI
 
-# Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ main, master]
+    branches:
+      - master
   pull_request:
-    branches: [ main, master ]
+    branches_ignore: []
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  Testing:
+  build:
+
     runs-on: ubuntu-latest
+    
     steps:
-    - name: Test workflow
-      uses: snakemake/snakemake-github-action@v1.22.0
+    - uses: actions/checkout@v1
+
+    - name: Test run
+      uses: ./
       with:
-        directory: .
-        snakefile: workflow/Snakefile
-        args: "--use-conda --cores 1 --configfile .test/config.yaml"
+        directory: .workflow
+        snakefile: .workflow/Snakefile
+        args: "--cores 1"
