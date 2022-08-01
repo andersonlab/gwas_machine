@@ -1,0 +1,43 @@
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@node-12-5-1>
+Subject: Job 41546: <17_sub> in cluster <farm5> Done
+
+Job <17_sub> was submitted from host <farm5-head1> by user <qz2> in cluster <farm5> at Tue Apr  5 16:29:51 2022
+Job was executed on host(s) <node-12-5-1>, in queue <normal>, as user <qz2> in cluster <farm5> at Tue Apr  5 16:29:59 2022
+</nfs/users/nfs_q/qz2> was used as the home directory.
+</nfs/users/nfs_q/qz2/ukibdbr/pre_imputation_b04b06b15b19b20/scripts> was used as the working directory.
+Started at Tue Apr  5 16:29:59 2022
+Terminated at Tue Apr  5 18:50:29 2022
+Results reported at Tue Apr  5 18:50:29 2022
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+bash 17_submit.sh
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   7928.50 sec.
+    Max Memory :                                 68 MB
+    Average Memory :                             23.32 MB
+    Total Requested Memory :                     40000.00 MB
+    Delta Memory :                               39932.00 MB
+    Max Swap :                                   -
+    Max Processes :                              8
+    Max Threads :                                18
+    Run time :                                   8430 sec.
+    Turnaround time :                            8438 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <17_sub.err> for stderr output of this job.
+
