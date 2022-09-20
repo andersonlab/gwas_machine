@@ -3,4 +3,4 @@ Platform to run GWAS machinery within the Anderson lab. This will be a 'soup-to-
 
 Please email mt27@sanger.ac.uk if you have any comments, bugs, questions or feature suggestions for any of the code included within!
 
-Please read the accompanying github wikipedia page for details on how to run the pipeline and all necessary documentation to run specific functions within different modules
+Please read the accompanying [https://github.com/andersonlab/gwas_machine/wiki] for details on how to run the pipeline and all necessary documentation to run specific functions within different modules
