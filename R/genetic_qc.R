@@ -1,68 +1,84 @@
 #' @import stringr
 
+#' @export
 prepare_reference_data = function()
 {
   #Create directory for the reference data
-  #system(sprintf("mkdir %s/ref"))
-  #Download the raw 1K raw file
-  #system("wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/20201028_3202_phased/")
-  #change to plink format
-  #mkdir ref/1KG
-  #mkdir ref/log
-  ### I set the variant ID in format: chr:pos_ref_alt, only the first 20 characters were used for alleles with length longer than 20
-  #for((i=1;i<23;i++))
-  #do
-  #	plink2 --vcf /lustre/scratch115/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chr${i}.filtered.shapeit2-duohmm-phased.vcf.gz --set-all-var-ids chr@:\#_\$r_\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --rm-dup force-first --keep-allele-order --make-bed --out ref/1KG/chr${i}
-  #done
+  # #system(sprintf("mkdir %s/ref"))
+  # #Download the raw 1K raw file
+  # #system("wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/20201028_3202_phased/")
+  # #change to plink format
+  # #mkdir ref/1KG
+  # #mkdir ref/log
+  # ### I set the variant ID in format: chr:pos_ref_alt, only the first 20 characters were used for alleles with length longer than 20
+  # #for((i=1;i<23;i++))
+  # #do
+  # #	plink2 --vcf /lustre/scratch115/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chr${i}.filtered.shapeit2-duohmm-phased.vcf.gz --set-all-var-ids chr@:\#_\$r_\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --rm-dup force-first --keep-allele-order --make-bed --out ref/1KG/chr${i}
+  # #done
+  # #
+  # ## X chromosome
+  # ### remove header line at first, otherwise there would be error like "Duplicate FORMAT:GT header line in --vcf file."
+  # #zcat /lustre/scratch115/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chrX.filtered.eagle2-phased.vcf.gz|grep -v "^##" > ref/1KG/chr23_tmp
+  # #plink2 --vcf ref/1KG/chr23_tmp --set-all-var-ids chr@:\#_\$r_\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --keep-allele-order --rm-dup force-first --make-bed --out ref/1KG/chr23
+  # #rm ref/1KG/chr23_tmp
   #
-  ## X chromosome
-  ### remove header line at first, otherwise there would be error like "Duplicate FORMAT:GT header line in --vcf file."
-  #zcat /lustre/scratch115/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chrX.filtered.eagle2-phased.vcf.gz|grep -v "^##" > ref/1KG/chr23_tmp
-  #plink2 --vcf ref/1KG/chr23_tmp --set-all-var-ids chr@:\#_\$r_\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --keep-allele-order --rm-dup force-first --make-bed --out ref/1KG/chr23
-  #rm ref/1KG/chr23_tmp
-
-  ##get high LD region
-  #wget https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.txt -O ref/high-LD-regions-hg38-GRCh38.txt
-  #sed -i 's/chr//g' ref/high-LD-regions-hg38-GRCh38.txt
-  #wget https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg19-GRCh37.txt -O ref/high-LD-regions-hg19-GRCh37.txt
-  ##get sample ancestry information
-  #wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel -O ref/integrated_call_samples_v3.20130502.ALL.panel
+  # ##get high LD region
+  # #wget https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.txt -O ref/high-LD-regions-hg38-GRCh38.txt
+  # #sed -i 's/chr//g' ref/high-LD-regions-hg38-GRCh38.txt
+  # #wget https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg19-GRCh37.txt -O ref/high-LD-regions-hg19-GRCh37.txt
+  # ##get sample ancestry information
+  # #wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel -O ref/integrated_call_samples_v3.20130502.ALL.panel
+  # #
+  # ## get reference data for liftover from hg38 to hg19
+  # #wget --timestamping 'ftp://hgdownload.cse.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHg19.over.chain.gz' -O ref/hg38ToHg19.over.chain.gz
+  # #wget --timestamping 'https://hgdownload.cse.ucsc.edu/goldenpath/hg19/liftOver/hg19ToHg38.over.chain.gz' -O ref/hg19ToHg38.over.chain.gz
+  # #
+  # ## get reference data for alignment to hg19
+  # #wget ftp://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/human_g1k_v37.fasta.gz -O ref/human_g1k_v37.fasta.gz
+  # #gunzip ref/human_g1k_v37.fasta.gz
   #
-  ## get reference data for liftover from hg38 to hg19
-  #wget --timestamping 'ftp://hgdownload.cse.ucsc.edu/goldenPath/hg38/liftOver/hg38ToHg19.over.chain.gz' -O ref/hg38ToHg19.over.chain.gz
-  #wget --timestamping 'https://hgdownload.cse.ucsc.edu/goldenpath/hg19/liftOver/hg19ToHg38.over.chain.gz' -O ref/hg19ToHg38.over.chain.gz
+  # ##get reference data for HLA imputation (using HIBAG)
+  # #mkdir ref/HLA
+  # #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-European-HLA2-hg19.RData -O ref/HLA/AffyAxiomUKB-European-HLA2-hg19.RData
+  # #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-Broad-HLA2-hg19.RData -O ref/HLA/AffyAxiomUKB-Broad-HLA2-hg19.RData
+  # #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-European-HLA4-hg19.RData -O ref/HLA/AffyAxiomUKB-European-HLA4-hg19.RData
+  # #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-Broad-HLA4-hg19.RData -O ref/HLA/AffyAxiomUKB-Broad-HLA4-hg19.RData
   #
-  ## get reference data for alignment to hg19
-  #wget ftp://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/human_g1k_v37.fasta.gz -O ref/human_g1k_v37.fasta.gz
-  #gunzip ref/human_g1k_v37.fasta.gz
-
-  ##get reference data for HLA imputation (using HIBAG)
-  #mkdir ref/HLA
-  #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-European-HLA2-hg19.RData -O ref/HLA/AffyAxiomUKB-European-HLA2-hg19.RData
-  #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-Broad-HLA2-hg19.RData -O ref/HLA/AffyAxiomUKB-Broad-HLA2-hg19.RData
-  #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-European-HLA4-hg19.RData -O ref/HLA/AffyAxiomUKB-European-HLA4-hg19.RData
-  #wget https://hibag.s3.amazonaws.com/download/HLARES/AffyAxiomUKB-Broad-HLA4-hg19.RData -O ref/HLA/AffyAxiomUKB-Broad-HLA4-hg19.RData
-
-  # prepare ref data for the following analysis
-  ## 1KG 30x on GRCh38, description on here:https://www.internationalgenome.org/data-portal/data-collection/30x-grch38
-
-  ## I set the variant ID in format: chr:pos_ref_alt, only the first 20 characters were used for alleles with length longer than 20
-  # for (i in 1:22) {
-  # system(sprintf("/software/team152/plink2 --vcf /lustre/scratch118/humgen/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chr%s.filtered.shapeit2-duohmm-phased.vcf.gz --set-all-var-ids chr@:\\#_\\$r_\\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --rm-dup force-first --make-bed --out ref/1KG/chr%s", i,i))
-  # }
-
-  ## X chromosome
-  ### remove header line at first, otherwise there would be error like "Duplicate FORMAT:GT header line in --vcf file."
-  #system('zcat /lustre/scratch118/humgen/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chrX.filtered.eagle2-phased.vcf.gz|grep -v "^##" > ref/1KG/chr23_tmp')
-  #system("/software/team152/plink2 --vcf ref/1KG/chr23_tmp --set-all-var-ids chr@:\\#_\\$r_\\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --rm-dup force-first --make-bed --out ref/1KG/chr23")
-  #system("rm ref/1KG/chr23_tmp")
-
-  # #get high LD region
-  #system("wget https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.txt -O ref/high-LD-regions-hg38-GRCh38.txt")
-  #system("sed -i 's/chr//g' ref/high-LD-regions-hg38-GRCh38.txt")
+  # # prepare ref data for the following analysis
+  # ## 1KG 30x on GRCh38, description on here:https://www.internationalgenome.org/data-portal/data-collection/30x-grch38
+  #
+  # ## I set the variant ID in format: chr:pos_ref_alt, only the first 20 characters were used for alleles with length longer than 20
+  # # for (i in 1:22) {
+  # # system(sprintf("/software/team152/plink2 --vcf /lustre/scratch118/humgen/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chr%s.filtered.shapeit2-duohmm-phased.vcf.gz --set-all-var-ids chr@:\\#_\\$r_\\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --rm-dup force-first --make-bed --out ref/1KG/chr%s", i,i))
+  # # }
+  #
+  # ## X chromosome
+  # ### remove header line at first, otherwise there would be error like "Duplicate FORMAT:GT header line in --vcf file."
+  # #system('zcat /lustre/scratch118/humgen/resources/1000g/release/20201028/CCDG_14151_B01_GRM_WGS_2020-08-05_chrX.filtered.eagle2-phased.vcf.gz|grep -v "^##" > ref/1KG/chr23_tmp')
+  # #system("/software/team152/plink2 --vcf ref/1KG/chr23_tmp --set-all-var-ids chr@:\\#_\\$r_\\$a --new-id-max-allele-len 20 truncate --max-alleles 2 --rm-dup force-first --make-bed --out ref/1KG/chr23")
+  # #system("rm ref/1KG/chr23_tmp")
+  #
+  # # #get high LD region
+  # #system("wget https://raw.githubusercontent.com/meyer-lab-cshl/plinkQC/master/inst/extdata/high-LD-regions-hg38-GRCh38.txt -O ref/high-LD-regions-hg38-GRCh38.txt")
+  # #system("sed -i 's/chr//g' ref/high-LD-regions-hg38-GRCh38.txt")
 }
 
-merge_batches_ibdbr = function(){
+#' @export
+#' This function will use the helper functions below to generate the QC steps necessary
+ibdbr_qc_pipeline = function(working_directory, #A writeable directory
+                             batch_old = c("b04","b06","b08","b09","b10","b12","b15","b17","b18","b19"),
+                             batch_new = c("b20")){
+  setwd(working_directory)                                             #Set working directory to where the output data should go
+  print("merging IBDBR batches")
+  merge_batches_ibdbr(batch_old = batch_old, batch_new = batch_new)    #Merge the IBDBR data
+  print("Updating Sample IDs")
+  update_sample_ids()                                                  #Update sample IDs
+  print("Keep Specific SNPs")
+  keep_specific_snps()                                                  #Keep Specific SNPs
+}
+
+#' @export
+merge_batches_ibdbr = function(batch_old,batch_new){
   system("mkdir -p ./data")
   system("rm -f ./data/old_batch_merge.list")
   system("rm -f ./data/new_batch_merge.list")
@@ -70,7 +86,6 @@ merge_batches_ibdbr = function(){
 
   rawDataDir1 = "/lustre/scratch123/hgi/projects/ibdgwas_bioresource/genotyped_data/raw/data_transfer_20220228"
   rawDataDir2 = "/lustre/scratch123/hgi/projects/ibdgwas_bioresource/genotyped_data/raw/data_transfer_20220324"
-  batch_old   = c("b04","b06","b08","b09","b10","b12","b15","b17","b18","b19")
 
   # Loop through all the previous batches and add their names to a list of data we wish to merge
   for (i in 1:length(batch_old)) {
@@ -78,7 +93,6 @@ merge_batches_ibdbr = function(){
     }
 
   # Add the new batches on from the new directory
-  batch_new = c("b20")
   for (i in 1:length(batch_new)) {
     system(sprintf("echo %s/v2chip_%s_V3_calls.vcf.gz >> ./data/new_batch_merge.list", rawDataDir2, batch_new[i]))
   }
