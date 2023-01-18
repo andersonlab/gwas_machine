@@ -111,27 +111,29 @@ remove_non_ATCG = function(merged_plates)
 align_positive_strand(){
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG --allow-extra-chr --output-chr MT --allow-no-sex --recode vcf --out merged_plates_ATCG")
   #Note this alignment step takes a *long* time ~ 1hr, so make yourself a coffee while it runs and don't panic if you don't see an output
-  system("/software/team152/bcftools-1.9/bcftools +/software/team152/bcftools-1.9/plugins/fixref.so  merged_plates_ATCG.vcf -Oz -o merged_plates_ATCG_aligned.vcf.gz -- -f /lustre/scratch123/hgi/projects/ibdgwas/IIBDGC/resources/hg38/hg38_edited.fa -m top 2>&1 | tee alignment.log")
+  system("/software/team152/bcftools-1.9/bcftools +/software/team152/bcftools-1.9/plugins/fixref.so  merged_plates_ATCG.vcf -Oz -o merged_plates_ATCG_aligned.vcf.gz -- -f /lustre/scratch125/humgen/resources/ref/Homo_sapiens/1000Genomes/human_g1k_v37.fasta -m top 2>&1 | tee alignment.log")
+  # T: Remove mismatch alleles, they cause imputation server to crash:
+  system("/software/team152/bcftools-1.9/./bcftools norm --check-ref x -f /lustre/scratch125/humgen/resources/ref/Homo_sapiens/1000Genomes/human_g1k_v37.fasta merged_plates_ATCG_aligned.vcf.gz -Oz -o $merged_plates_ATCG_aligned2.vcf.gz 2>&1 | tee alignment2.log")
   #After alignment, format vcf to bed file
-  system("/software/team152/plink_linux_x86_64_20181202/plink --vcf merged_plates_ATCG_aligned.vcf.gz --keep-allele-order --id-delim --make-bed --out merged_plates_ATCG_aligned")
+  system("/software/team152/plink_linux_x86_64_20181202/plink --vcf merged_plates_ATCG_aligned2.vcf.gz --keep-allele-order --id-delim --make-bed --out merged_plates_ATCG_aligned2")
 }
 
 update_variant_ids = function(){
   #Generate missingness across SNPs and samples
-  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned --missing --out merged_plates_ATCG_aligned")
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned2 --missing --out merged_plates_ATCG_aligned2")
   # Update the IDs to chr:pos:ref:alt
-  system("zcat merged_plates_ATCG_aligned.vcf.gz|grep -v ^"#"|cut -f '1-5' | awk '{print $3,"chr"$1":"$2"_"$4"_"$5}' > merged_plates_ATCG_aligned")
+  system("zcat merged_plates_ATCG_aligned2.vcf.gz|grep -v ^"#"|cut -f '1-5' | awk '{print $3,"chr"$1":"$2"_"$4"_"$5}' > merged_plates_ATCG_aligned2")
 }
 
 remove_duplicated_variants = function(){
 
   #Read in bim table for SNPs
-  bim<-read.table("merged_plates_ATCG_aligned.bim", sep="\t",head=F)
+  bim<-read.table("merged_plates_ATCG_aligned2.bim", sep="\t",head=F)
   #Read in IDs
-  ids<-read.table("merged_plates_ATCG_aligned",header=F,stringsAsFactor=F)
+  ids<-read.table("merged_plates_ATCG_aligned2",header=F,stringsAsFactor=F)
 
   #Read in variant missingness
-  varmiss<-read.table("merged_plates_ATCG_aligned.lmiss",sep="",head=T)
+  varmiss<-read.table("merged_plates_ATCG_aligned2.lmiss",sep="",head=T)
 
   #Rename column
   colnames(ids)[2]<-"ids"
@@ -171,7 +173,7 @@ remove_duplicated_variants = function(){
   write.table(bim.1[,c(2,7,3:6)],"merged_plates_ATCG_aligned_edited.bim",col.names=F,row.names=F,quote=F,sep="\t")
 
   #Remove duplicated variants with PLINK
-  system("/software/team152/plink_linux_x86_64_20181202/plink --bed merged_plates_ATCG_aligned.bed --bim merged_plates_ATCG_aligned_edited.bim --fam merged_plates_ATCG_aligned.fam --exclude list_duplicated_var_exclude --keep-allele-order --make-bed --out merged_plates_ATCG_aligned_nodup")
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bed merged_plates_ATCG_aligned.bed --bim merged_plates_ATCG_aligned_edited.bim --fam merged_plates_ATCG_aligned2.fam --exclude list_duplicated_var_exclude --keep-allele-order --make-bed --out merged_plates_ATCG_aligned_nodup")
 }
 
 #Compare Frequency
@@ -179,6 +181,7 @@ compare_freq_1KG = function(){
   #Note that all the reference data is located in: /lustre/scratch119/humgen/projects/sc-eqtl-ibd/data/genotypes/qc_output/1KG_data
 
   # Compare MAF between 1KG EUR and study, and flip allele
+  # T: Need to update to b37
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile  /lustre/scratch119/realdata/mdt2/projects/sc-eqtl-ibd/data/genotypes/qc_output/1KG_data/1000GP_EUR_b38_study_variants --freq --out /lustre/scratch119/realdata/mdt2/projects/sc-eqtl-ibd/data/genotypes/qc_output/1KG_data/1000GP_EUR_b38_study_variants")
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup --freq --out merged_plates_ATCG_aligned_nodup")
 
@@ -216,8 +219,11 @@ compare_freq_1KG = function(){
   flip<-flip[which(!flip$SNP %in% remove$SNP),]
 
   write.table(flip[,"SNP"],"list_variants_to_flip_AT_CG",col.names=F,row.names=F,quote=F,sep="\t")
-
+  
+  # Make sure SNPS to keep aren't in variants to remove
   system("grep -v -w -f snps_to_keep list_variants_to_remove_AT_CG > list_variants_to_remove_AT_CG_rmkeep")
+
+  # Remove variants that we are unsure about strand and flip the variants listed
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup --exclude list_variants_to_remove_AT_CG_rmkeep --flip list_variants_to_flip_AT_CG --make-bed --out merged_plates_ATCG_aligned_nodup_flip")
 }
 
@@ -248,7 +254,7 @@ remove_low_call_rate = function(){
   system("grep -v -w -f snps_to_keep list_variants_to_remove_vcr0.95 > list_variants_to_remove_vcr0.95_rmkeep")
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95 --allow-no-sex --exclude list_variants_to_remove_vcr0.95_rmkeep --make-bed --out merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95_vcr0.95")
 
-  # Variant MAF<0.01 AND Call Rate <98%
+  # Variant MAF<0.05 AND Call Rate <98%
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95 --allow-no-sex --missing --out merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95")
   system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95 --allow-no-sex --freq --out merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95")
 
@@ -257,19 +263,105 @@ remove_low_call_rate = function(){
   frq<-read.table("merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95.frq",head=T)
 
   var<-merge(frq[,c(2:6)],var_miss,by="SNP")
-  var.1<-var[which(var$MAF<0.01 & var$F_MISS>0.02),]
-  write.table(var.1[,"SNP",drop=F],"list_monomorphic_vcr098maf0.01_var_exclude",col.names=F,row.names=F,quote=F,sep="\t")
+  var.1<-var[which(var$MAF<0.05 & var$F_MISS>0.02),]
+  write.table(var.1[,"SNP",drop=F],"list_monomorphic_vcr098maf0.05_var_exclude",col.names=F,row.names=F,quote=F,sep="\t")
 
-  system("grep -v -w -f snps_to_keep list_monomorphic_vcr098maf0.01_var_exclude > list_monomorphic_vcr098maf0.01_var_exclude_rmkeep")
-  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95 --allow-no-sex --exclude list_monomorphic_vcr098maf0.01_var_exclude_rmkeep --make-bed --out merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95_vcr0.98maf0.01")
+  system("grep -v -w -f snps_to_keep list_monomorphic_vcr098maf0.05_var_exclude > list_monomorphic_vcr098maf0.05_var_exclude_rmkeep")
+  system("/software/team152/plink_linux_x86_64_20181202/plink --bfile merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95 --allow-no-sex --exclude list_monomorphic_vcr098maf0.05_var_exclude_rmkeep --make-bed --out merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95_vcr0.98maf0.05")
+}
+
+check_population = function(){
+  # Project data into 1000G and remove non-EURs
+}
+
+
+
+#Filter based on hwe - maybe use loose thresholds because small sample size
+filter_hwe = function(){
+  # T: prelim, mostly copied direct from Laura script qc_impute.R
+  cohorts=("ti_sc_eqtl")
+  # cohorts=("ti_sc_eqtl-healthy", "ti_sc_eqtl-cd")
+
+  for (i in 1:length(cohorts)) {
+    tmp<-read.table(paste(path,
+                          "pre_imputation/QC/",cohorts[i],"/",cohorts[i],"_hg19_noind_posstr_nodup_flip_sexcheck_missinghh_nochry_scr0.8_vcr0.8_scr0.95_vcr0.95_vcr0.98maf0.05_nomissidiscrep_perstudy.fam",sep=""),head=F)
+    colnames(tmp)<-c("FID","IID")
+    write.table(tmp,paste(path,"pre_imputation/QC/",cohorts[i],"/list_ids_",cohorts[i],sep=""),col.names=F,row.names=F,quote=F,sep="\t")
+  }
+  
+  # ...TODO
+
 }
 
 #Filter heterozygosity
 filter_heterozygosity = function(){
-# To check
+  # T: prelim, mostly copied direct from Laura script qc_impute.R
+  system("/software/team152/plink_linux_x86_64_20181202/./plink \
+  --bfile merged_plates_ATCG_aligned_nodup_flip_nochry_scr0.8_vcr0.8_scr0.95_vcr0.98maf0.05_hwe \
+  --allow-no-sex \
+  --chr 1-22 --het \
+  --out autosomal_het")
+
+
+  # ...TODO
 }
 
-#
+# Perform liftover to b38
+liftover_b38 = function(){
+  # Convert map file into bedfile
+  map<-read.table("merged_plates_noind_posstr_nodup_flip_sexcheck_missinghh_nochry_scr0.8_vcr0.8_scr0.95_vcr0.95_vcr0.98maf0.05_hwe_het.map",head=F)
+
+  map$chr<-paste("chr",map$V1,sep="")
+  map$chr[which(map$V1=="23")]<-"chrX"
+  map$chr[which(map$V1=="25")]<-"chrX"
+  map$chr[which(map$V1=="24")]<-"chrY"
+  map$chromStart<-map$V4
+  map$chromEnd<-map$V4+1
+
+  map$chromStart<-format(map$chromStart, scientific=F)
+  map$chromEnd<-format(map$chromEnd, scientific=F)
+
+  write.table(map[,c(5:7,2)],"merged_plates_postqc.bed",col.names=F,row.names=F,quote=F,sep="\t")
+
+  #### lift positions
+
+  system("/software/team152/liftover/liftOver \
+  merged_plates_postqc.bed \
+  /software/team152/liftover/hg19ToHg38.over.chain.gz \
+  merged_plates_postqc_lifted_hg38 \
+  merged_plates_postqc_no_lifted_hg38")
+
+  system("cut -f 4 merged_plates_postqc_no_lifted_hg38 | sed "/^#/d"  > merged_plates_nonlifted_hg38_variants_to_exclude_tmp.dat")
+
+  system("grep "alt" merged_plates_postqc_lifted_hg38 | cut -f 4 \
+  | cat - merged_plates_nonlifted_hg38_variants_to_exclude_tmp.dat > \
+  merged_plates_nonlifted_hg38_variants_to_exclude.dat")
+
+  ### exclude non lifted:
+
+  system("/software/team152/plink_linux_x86_64_20181202/./plink \
+  --bfile merged_plates_noind_posstr_nodup_flip_sexcheck_missinghh_nochry_scr0.8_vcr0.8_scr0.95_vcr0.95_vcr0.98maf0.05_hwe_het \
+  --exclude nonlifted_hg38_variants_to_exclude.dat \
+  --recode tab --out merged_plates_postqc_lifted_hg38_liftedvariants")
+
+  bed_lifted<-read.table("merged_plates_postqc_lifted_hg38",head=F)
+  excluded<-read.table("merged_plates_nonlifted_hg38_variants_to_exclude.dat",head=F)
+  bed_lifted<-bed_lifted[which(!bed_lifted$V4 %in% excluded$V1),]
+  map<-read.table("merged_plates_postqc_lifted_hg38_liftedvariants.map",head=F)
+  map$pos<-bed_lifted$V2
+
+  write.table(map[,c(1:3,5)],"merged_plates_postqc_lifted_hg38_liftedvariants_edited.map",col.names=F,row.names=F,quote=F,sep="\t")
+
+  # put together updated .ped plus lifted.map
+  system("/software/team152/plink_linux_x86_64_20181202/./plink \
+  --ped merged_plates_postqc_lifted_hg38_liftedvariants.ped \
+  --map merged_plates_postqc_lifted_hg38_liftedvariants_edited.map \
+  --merge-x 'no-fail' \
+  --make-bed --out merged_plates_postqc_lifted_hg38")
+
+}
+
+
 filter_monomorphic_variants = function(){
 
   plink --bfile data/ancestry/eur/${filenamedup}_eur_hwe1e-12_het \
@@ -286,7 +378,53 @@ filter_monomorphic_variants = function(){
 
 }
 
+# Force A1 allele to be the ref allele
+force_ref_alt = function(){
+  system("zcat merged_plates_posstrandaligned.vcf.gz | cut -f '1-5' | awk '{print $1":"$2"_"$4"_"$5,$4}' | sed '/^##/d' > list_variants_merged_plates_posstrandaligned_with_A1")
 
+  system("sort list_variants_merged_plates_posstrandaligned_with_A1 uniq > list_variants_merged_plates_posstrandaligned_with_A1_ed")
+
+
+  system("/software/team152/plink_linux_x86_64_20181202/./plink --bfile merged_plates_postqc_lifted_hg38 --exclude ${path_gwas}/pre_imputation/QC/gwas1/list_indel_var_exclude_2 --make-bed --out merged_plates_postqc_lifted_hg38_nomonom")
+
+  system("/software/team152/plink_linux_x86_64_20181202/./plink --bfile merged_plates_postqc_lifted_hg38_nomonom --allow-no-sex --a2-allele list_variants_merged_plates_posstrandaligned_with_A1_ed --make-bed --out merged_plates_postqc_lifted_hg38_nomonom_RefAlt")
+
+  # Double check against hg38 reference
+   system("/software/team152/plink_linux_x86_64_20181202/./plink --bfile merged_plates_postqc_lifted_hg38_nomonom_RefAlt --allow-no-sex --keep-allele-order --output-chr M --recode vcf-iid --out merged_plates_postqc_lifted_hg38_nomonom_RefAlt")
+
+  # Note that most PLINK analyses treat the A1 (usually minor) allele as the reference allele, which makes sense when only biallelic variants are involved.
+  # However, since it is conventional for VCF files to set the major allele as the reference allele instead
+
+  # double check alleles, variants: 
+  system("/software/team152/bcftools-1.9/./bcftools +fixref merged_plates_postqc_lifted_hg38_nomonom_RefAlt.vcf -Oz -o merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned.vcf.gz -- -f hg38/hg38_edited.fa -m top")
+
+  # REMOVE MISSMATCH ALLELES, THEY CAUSE IMPUTATION SERVER TO CRASH:
+  system("/software/team152/bcftools-1.9/./bcftools norm --check-ref x -f /hg38/hg38_edited.fa merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned.vcf.gz -Oz -o merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned_2.vcf.gz")
+
+  # Double check:
+  system("/software/team152/bcftools-1.9/./bcftools +fixref merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned_2.vcf.gz -- -f hg38/hg38_edited.fa")
+
+  #### VCF to BED
+
+  system("/software/team152/plink_linux_x86_64_20181202/./plink --vcf merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned_2.vcf.gz --keep-allele-order --allow-no-sex --double-id --make-bed --out merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned")
+
+  # Update names to chr:position_ref_alt b38
+  system("zcat merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned.vcf.gz | cut -f '1-5' | awk '{print $3,$1":"$2"_"$4"_"$5}' > list_variants_merged_plates_hg38_posstrandaligned")
+
+  bim<-read.table("merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned.bim",sep="\t",head=F)
+  ids<-read.table("list_variants_merged_plates_hg38_posstrandaligned",sep=" ",head=F,skip=34)
+  colnames(ids)[2]<-"ids"
+
+  #the major allele is set to A2 by default by Plink, keep ids with real ref/alt as in vcf using the ids file
+  bim.1<-cbind(bim,ids[,"ids",drop=F])
+
+  bim.1$ids<-gsub("X:","23:",bim.1$ids)
+  write.table(bim.1[,c(1,7,3:6)],"merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned_edited.bim",col.names=F,row.names=F,quote=F,sep="\t")
+
+  # Rename variants using b38
+  /software/team152/plink_linux_x86_64_20181202/./plink --bed merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned.bed --bim merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned_edited.bim --fam merged_plates_postqc_lifted_hg38_nomonom_RefAlt.fam --keep-allele-order --allow-no-sex --freq counts  --make-bed --out merged_plates_postqc_lifted_hg38_nomonom_RefAlt_posstrandaligned_updated
+
+}
 
 
 
